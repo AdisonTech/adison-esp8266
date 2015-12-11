@@ -1,5 +1,7 @@
 
 
+
+
 /*
  * see https://github.com/AdisonTech/adison-esp8266 for documentation
  */
@@ -11,6 +13,7 @@
 #include <WiFiManager.h>
 #include <EEPROM.h>
 #include <DHT.h>
+#include <ArduinoJson.h>
 
 DHT dht(5, DHT22);
 
@@ -47,9 +50,25 @@ void setup_mqtt() {
   Serial.println(topicBase);
 }
 
+StaticJsonBuffer<200> jsonBuffer;
+
+void json_test() {
+  Serial.println("json_test");
+  JsonObject& root = jsonBuffer.createObject();
+  root["sensor"] = "gps";
+  root["time"] = 1351824120;
+  JsonArray& data = root.createNestedArray("data");
+  data.add(48.756080, 6);  // 6 is the number of decimals to print
+  data.add(2.302038, 6);   // if not specified, 2 digits are printed
+  Serial.println("JSON Buffer output: ");
+  root.printTo(Serial);
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println();
+
+  json_test();
 
   WiFi.macAddress(mac_);
   snprintf(mac, sizeof(mac), "%x%x%x%x%x%x", 
