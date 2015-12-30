@@ -1,7 +1,3 @@
-
-
-
-
 /*
  * see https://github.com/AdisonTech/adison-esp8266 for documentation
  */
@@ -17,21 +13,40 @@
 
 DHT dht(5, DHT22);
 
-const char* mqtt_server = "portal.adisontech.com";
+String get_mac_address() {
+  byte mac_[6];
+  char mac[14];  
+  
+  WiFi.macAddress(mac_);
+  snprintf(mac, sizeof(mac), "%x%x%x%x%x%x", 
+    mac_[0],
+    mac_[1],
+    mac_[2],
+    mac_[3],
+    mac_[4],
+    mac_[5],
+    mac_[6]);
 
-WiFiClient espClient;
+  Serial.println(mac);
 
-long lastMsg = 0;
-char msg[50];
-int value = 0;
+  return String(mac);
+}
+
+String portal_server = "mars:3000";
+String site = "BEC";
+String url;
+
+void setup_url() {
+  url = String("http://") + portal_server + String("/api/node/") + String(site) + String("/") + get_mac_address();
+  Serial.println(url);
+}
 
 void clear_config() {
   Serial.println("Clearing EEPROM");
   WiFi.begin("hi1234", "there");
 }
 
-byte mac_[6];
-char mac[14];
+
 
 StaticJsonBuffer<200> jsonBuffer;
 
@@ -47,24 +62,22 @@ void json_test() {
   root.printTo(Serial);
 }
 
+void setup_wifi() {
+  Serial.println("Setup Wifi ...");
+  WiFiManager wifiManager;
+  wifiManager.autoConnect("AutoConnectAP");
+  Serial.println("connected...yey :)");
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println();
 
   json_test();
 
-  WiFi.macAddress(mac_);
-  snprintf(mac, sizeof(mac), "%x%x%x%x%x%x", 
-    mac_[0],
-    mac_[1],
-    mac_[2],
-    mac_[3],
-    mac_[4],
-    mac_[5],
-    mac_[6]);
-  
+
   Serial.print("Adison Technologies ");
-  Serial.println(mac);
+
 
   Serial.print("ChipID: ");
   Serial.println(ESP.getChipId(), HEX);
@@ -77,9 +90,8 @@ void setup() {
     clear_config();
     
   pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
-  WiFiManager wifiManager;
-  wifiManager.autoConnect("AutoConnectAP");
-  Serial.println("connected...yeey :)");
+  setup_url();
+  setup_wifi();
 }
 
 void blink() {
@@ -88,35 +100,17 @@ void blink() {
   digitalWrite(BUILTIN_LED, 1);
 }
 
-void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    if (client.connect("ESP8266Client")) {
-      Serial.println("connected");
-      // Once connected, publish an announcement...
-      client.publish("outTopic", "hello world");
-      // ... and resubscribe
-      client.subscribe("inTopic");
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
-    }
-  }
+void send_data(float t, float h) {
+  HTTPClient http;
 }
 
 void loop() {
-  if (!client.connected()) {
-    reconnect();
+  if (WiFi.status() != WL_CONNECTED) {
+    setup_wifi();
   }
-  client.loop();
 
   long now = millis();
-  if (now - lastMsg > 2000) {    
+
     blink();
     float h = dht.readHumidity();
     float t = dht.readTemperature(true);
@@ -126,11 +120,13 @@ void loop() {
       Serial.print(" %\t");
       Serial.print("Temperature: ");
       Serial.println(t);
-    }
+
 
     Serial.print("Free Heap: ");
     Serial.println(ESP.getFreeHeap());
   }
+
+  delay(1000);
 }
 
 
