@@ -1,5 +1,6 @@
 /*
  * see https://github.com/AdisonTech/adison-esp8266 for documentation
+ *
  */
 
 #include <ESP8266WiFi.h>
@@ -27,39 +28,21 @@ String get_mac_address() {
     mac_[5],
     mac_[6]);
 
-  Serial.println(mac);
-
   return String(mac);
 }
 
 String portal_server = "mars:3000";
 String site = "BEC";
-String url;
+String portal_api_url;
 
 void setup_url() {
-  url = String("http://") + portal_server + String("/api/node/") + String(site) + String("/") + get_mac_address();
-  Serial.println(url);
+  portal_api_url = String("http://") + portal_server + String("/api/node/") + String(site) + String("/") + get_mac_address();
+  Serial.println(portal_api_url);
 }
 
 void clear_config() {
   Serial.println("Clearing EEPROM");
   WiFi.begin("hi1234", "there");
-}
-
-
-
-StaticJsonBuffer<200> jsonBuffer;
-
-void json_test() {
-  Serial.println("json_test");
-  JsonObject& root = jsonBuffer.createObject();
-  root["sensor"] = "gps";
-  root["time"] = 1351824120;
-  JsonArray& data = root.createNestedArray("data");
-  data.add(48.756080, 6);  // 6 is the number of decimals to print
-  data.add(2.302038, 6);   // if not specified, 2 digits are printed
-  Serial.println("JSON Buffer output: ");
-  root.printTo(Serial);
 }
 
 void setup_wifi() {
@@ -73,11 +56,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
 
-  json_test();
-
-
   Serial.print("Adison Technologies ");
-
 
   Serial.print("ChipID: ");
   Serial.println(ESP.getChipId(), HEX);
@@ -101,7 +80,33 @@ void blink() {
 }
 
 void send_data(float t, float h) {
+  StaticJsonBuffer<200> jsonBuffer;
+  JsonObject& data = jsonBuffer.createObject();
+  data["type"] = "esp8266";
+  JsonObject& inputs = data.createNestedObject("inputs");
+  inputs["temp"] = t;
+  inputs["humidity"] = h;
+  String data_;
+  data.printTo(data_);
+  Serial.println(data_);
+
   HTTPClient http;
+  http.begin(portal_api_url);
+  http.addHeader("Content-Type", "application/json");
+  int httpCode = http.POST(data_);
+
+  if (httpCode) {
+    Serial.print("HTTP POST code: ");
+    Serial.println(httpCode);
+
+    if (httpCode == 200) {
+      //String payload = http.getString();
+      //Serial.println(payload);
+    }
+  } else {
+    Serial.printf("HTTP POST failed\n");
+  }
+  http.end();
 }
 
 void loop() {
@@ -111,20 +116,21 @@ void loop() {
 
   long now = millis();
 
-    blink();
-    float h = dht.readHumidity();
-    float t = dht.readTemperature(true);
-    if (!isnan(h) && !isnan(t)) {
-      Serial.print("Humidity: ");
-      Serial.print(h);
-      Serial.print(" %\t");
-      Serial.print("Temperature: ");
-      Serial.println(t);
+  blink();
+  float h = dht.readHumidity();
+  float t = dht.readTemperature(true);
+  if (!isnan(h) && !isnan(t)) {
+    Serial.print("Humidity: ");
+    Serial.print(h);
+    Serial.print(" %\t");
+    Serial.print("Temperature: ");
+    Serial.println(t);
 
-
-    Serial.print("Free Heap: ");
-    Serial.println(ESP.getFreeHeap());
+    send_data(t, h);
   }
+
+  Serial.print("Free Heap: ");
+  Serial.println(ESP.getFreeHeap());
 
   delay(1000);
 }
