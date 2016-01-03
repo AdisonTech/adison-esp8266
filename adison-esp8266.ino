@@ -109,6 +109,23 @@ void send_data(float t, float h) {
   http.end();
 }
 
+void get_data() {
+  HTTPClient http;
+  http.begin(portal_api_url);
+  int httpCode = http.GET();
+
+  if (httpCode == 200) {
+    String payload = http.getString();
+    StaticJsonBuffer<200> jsonBuffer;
+    JsonObject &j = jsonBuffer.parseObject(payload);
+    Serial.print("GET result: ");
+    j.printTo(Serial);
+    Serial.println(payload);    
+  } else {
+    Serial.print("HTTP GET failed\n");
+  }
+}
+
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     setup_wifi();
@@ -127,6 +144,7 @@ void loop() {
     Serial.println(t);
 
     send_data(t, h);
+    get_data();
   }
 
   Serial.print("Free Heap: ");
